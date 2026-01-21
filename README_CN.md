@@ -7,6 +7,13 @@
 ## 安装
 
 ```bash
+# 创建虚拟环境
+uv venv .venv
+
+# 激活虚拟环境（Windows）
+.venv\Scripts\activate
+
+# 安装依赖
 uv pip install -e .
 ```
 
@@ -35,8 +42,8 @@ python main.py --transport stdio --token "token1" --token "token2"
 from fastmcp import Client
 
 async def main():
-    # 直接传递 URL 和 token
-    async with Client("http://localhost:8001/mcp", None, auth="your-token") as client:
+    # 连接到 Streamable-HTTP 端点
+    async with Client("http://localhost:8003/mcp", auth="your-token") as client:
         tools = await client.list_tools()
         print(f"工具列表: {[t.name for t in tools]}")
 
@@ -54,7 +61,8 @@ from mcp import ClientSession
 import asyncio
 
 async def main():
-    async with sse_client(url="http://localhost:8000/sse", headers={"Authorization": "Bearer your-token"}) as (read, write):
+    # SSE 端点挂载在 /mcp/sse
+    async with sse_client(url="http://localhost:8003/mcp/sse", headers={"Authorization": "Bearer your-token"}) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
 
@@ -67,7 +75,7 @@ async def main():
 asyncio.run(main())
 ```
 
-完整示例请查看 [examples/streamable_http_client_example.py](examples/streamable_http_client_example.py) 和 [examples/sse_client_example.py](examples/sse_client_example.py)。
+完整示例请查看 [examples/sse_client_example.py](examples/sse_client_example.py)。
 
 #### Claude Desktop 配置
 
@@ -95,22 +103,25 @@ asyncio.run(main())
 使用 FastAPI 通过 SSE/HTTP 传输模式运行 MCP 服务器：
 
 ```bash
-# 使用 SSE 传输（直接使用 FastMCP）
-python main.py --transport sse --host 0.0.0.0 --port 8000
+# 使用 SSE 传输
+python main.py --transport sse --host 0.0.0.0 --port 8003
+
+# 使用 Streamable-HTTP 传输
+python main.py --transport http --host 0.0.0.0 --port 8003
 ```
 
 #### API 端点
 
-**SSE 模式（端口 8000）：**
+所有 MCP 端点都挂载在 `/mcp` 路径下：
 
 | 端点 | 方法 | 说明 |
 |------|------|------|
-| `/sse` | GET | SSE 流端点 |
-| `/messages/` | POST | 消息端点 |
+| `/mcp/sse` | GET | SSE 流端点 |
+| `/mcp/messages` | POST | JSON-RPC 消息端点 |
 
 **注意：** SSE 传输需要完整的会话流程：
-1. 客户端先建立 SSE 连接（GET `/sse`），获取 `session_id`
-2. 后续请求携带 `session_id` 头（`X-Mcp-Session-Id`）
+1. 客户端先建立 SSE 连接（GET `/mcp/sse`），从 SSE 事件中获取 `session_id`
+2. 后续 POST 请求需要携带 `session_id`（作为查询参数或请求头）
 3. 响应通过 SSE 流返回
 
 ## 认证
@@ -179,12 +190,14 @@ config = AuthConfig.from_file("config.json")
 
 ## API 端点
 
-使用 SSE 传输模式时：
+使用 SSE/HTTP 传输模式时：
 
-- `GET /` - 根端点，显示可用路由
-- `GET /health` - 健康检查
-- `GET /mcp/sse` - SSE 端点
-- `POST /mcp/message` - 消息端点
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/` | GET | 根端点，显示可用路由 |
+| `/health` | GET | 健康检查 |
+| `/mcp/sse` | GET | SSE 流端点 |
+| `/mcp/messages` | POST | JSON-RPC 消息端点 |
 
 ## 项目结构
 
@@ -198,12 +211,12 @@ src/
 └── resources/       # 资源实现
     └── __init__.py
 tests/
-├── conftest.py      # Pytest  fixtures
+├── conftest.py      # Pytest fixtures
 ├── test_auth.py     # 认证测试
-├── test_server.py   # 服务器测试
-└── test_mcp.py      # MCP 测试脚本
+└── test_server.py   # 服务器测试
 examples/
-└── stdio_client_example.py  # STDIO 客户端示例
+├── stdio_client_example.py   # STDIO 客户端示例
+└── sse_client_example.py     # SSE 客户端示例
 ```
 
 ## 添加新工具
@@ -236,13 +249,11 @@ import asyncio
 from fastmcp import Client
 from src.server import mcp
 
-
 async def test():
     async with Client(mcp) as client:
         tools = await client.list_tools()
         result = await client.call_tool("add", {"a": 5, "b": 3})
         print(f"5 + 3 = {result.data}")
-
 
 if __name__ == "__main__":
     asyncio.run(test())

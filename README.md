@@ -7,6 +7,13 @@ A demonstration of MCP (Model Context Protocol) server with FastAPI integration,
 ## Installation
 
 ```bash
+# Create virtual environment
+uv venv .venv
+
+# Activate virtual environment (Windows)
+.venv\Scripts\activate
+
+# Install dependencies
 uv pip install -e .
 ```
 
@@ -35,8 +42,8 @@ python main.py --transport stdio --token "token1" --token "token2"
 from fastmcp import Client
 
 async def main():
-    # 直接传递 URL 和 token
-    async with Client("http://localhost:8001/mcp", None, auth="your-token") as client:
+    # Connect to Streamable-HTTP endpoint
+    async with Client("http://localhost:8003/mcp", auth="your-token") as client:
         tools = await client.list_tools()
         print(f"Tools: {[t.name for t in tools]}")
 
@@ -54,7 +61,8 @@ from mcp import ClientSession
 import asyncio
 
 async def main():
-    async with sse_client(url="http://localhost:8000/mcp/sse", headers={"Authorization": "Bearer your-token"}) as (read, write):
+    # SSE endpoint is mounted at /mcp/sse
+    async with sse_client(url="http://localhost:8003/mcp/sse", headers={"Authorization": "Bearer your-token"}) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
 
@@ -67,7 +75,7 @@ async def main():
 asyncio.run(main())
 ```
 
-For a complete example, see [examples/streamable_http_client_example.py](examples/streamable_http_client_example.py) and [examples/sse_client_example.py](examples/sse_client_example.py).
+For a complete example, see [examples/sse_client_example.py](examples/sse_client_example.py).
 
 #### Claude Desktop Configuration
 
@@ -95,22 +103,25 @@ Add to your Claude Desktop config:
 Run the MCP server using SSE/HTTP transport via FastAPI:
 
 ```bash
-# Using SSE transport (direct FastMCP)
-python main.py --transport sse --host 0.0.0.0 --port 8000
+# Using SSE transport
+python main.py --transport sse --host 0.0.0.0 --port 8003
+
+# Using Streamable-HTTP transport
+python main.py --transport http --host 0.0.0.0 --port 8003
 ```
 
 #### API Endpoints
 
-**SSE Mode (port 8000):**
+All MCP endpoints are mounted under `/mcp`:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/mcp/sse` | GET | SSE stream endpoint |
-| `/mcp/messages` | POST | Message endpoint (JSON-RPC) |
+| `/mcp/messages` | POST | JSON-RPC message endpoint |
 
 **Note:** SSE transport requires a complete session flow:
-1. Client establishes SSE connection first (GET `/mcp/sse`), gets `session_id`
-2. Subsequent requests carry `session_id` header (`X-Mcp-Session-Id`)
+1. Client establishes SSE connection first (GET `/mcp/sse`), gets `session_id` from SSE event
+2. Subsequent POST requests include `session_id` as query parameter or header
 3. Responses are returned via SSE stream
 
 ## Authentication
@@ -156,7 +167,6 @@ Create a `config.json` file:
   "enabled": true,
   "tokens": ["your-secret-token"],
   "require_auth": true
-}
 ```
 
 Load it programmatically:
@@ -179,12 +189,14 @@ config = AuthConfig.from_file("config.json")
 
 ## API Endpoints
 
-When running with SSE transport via FastAPI:
+When running with SSE/HTTP transport via FastAPI:
 
-- `GET /` - Root endpoint with available routes
-- `GET /health` - Health check
-- `GET /mcp/sse` - SSE stream endpoint
-- `POST /mcp/messages` - JSON-RPC message endpoint
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Root endpoint with available routes |
+| `/health` | GET | Health check |
+| `/mcp/sse` | GET | SSE stream endpoint |
+| `/mcp/messages` | POST | JSON-RPC message endpoint |
 
 ## Project Structure
 
@@ -201,6 +213,9 @@ tests/
 ├── conftest.py      # Pytest fixtures
 ├── test_auth.py     # Auth tests
 └── test_server.py   # Server tests
+examples/
+├── stdio_client_example.py   # STDIO client example
+└── sse_client_example.py     # SSE client example
 ```
 
 ## Adding New Tools
