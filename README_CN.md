@@ -29,35 +29,45 @@ python main.py --transport stdio --token "token1" --token "token2"
 
 #### Python 客户端调用示例
 
-```python
-import asyncio
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+**Streamable-HTTP 模式（推荐）：**
 
+```python
+from fastmcp import Client
 
 async def main():
-    server_params = StdioServerParameters(
-        command="python",
-        args=["main.py", "--transport", "stdio", "--token", "your-token"]
-    )
+    # 直接传递 URL 和 token
+    async with Client("http://localhost:8001/mcp", None, auth="your-token") as client:
+        tools = await client.list_tools()
+        print(f"工具列表: {[t.name for t in tools]}")
 
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-
-            # 列出工具
-            tools = await session.list_tools()
-            print(f"工具列表: {[t.name for t in tools]}")
-
-            # 调用工具
-            result = await session.call_tool("add", {"a": 5, "b": 3})
-            print(f"结果: {result.content[0].text}")
-
+        result = await client.call_tool("add", {"a": 5, "b": 3})
+        print(f"结果: {result.data}")
 
 asyncio.run(main())
 ```
 
-完整示例请查看 [examples/stdio_client_example.py](examples/stdio_client_example.py)。
+**SSE 模式：**
+
+```python
+from mcp.client.sse import sse_client
+from mcp import ClientSession
+import asyncio
+
+async def main():
+    async with sse_client(url="http://localhost:8000/sse", headers={"Authorization": "Bearer your-token"}) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+
+            result = await session.list_tools()
+            print(f"工具列表: {[t.name for t in result.tools]}")
+
+            result = await session.call_tool("add", {"a": 5, "b": 3})
+            print(f"结果: {result.content[0].text}")
+
+asyncio.run(main())
+```
+
+完整示例请查看 [examples/streamable_http_client_example.py](examples/streamable_http_client_example.py) 和 [examples/sse_client_example.py](examples/sse_client_example.py)。
 
 #### Claude Desktop 配置
 
@@ -85,8 +95,23 @@ asyncio.run(main())
 使用 FastAPI 通过 SSE/HTTP 传输模式运行 MCP 服务器：
 
 ```bash
+# 使用 SSE 传输（直接使用 FastMCP）
 python main.py --transport sse --host 0.0.0.0 --port 8000
 ```
+
+#### API 端点
+
+**SSE 模式（端口 8000）：**
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/sse` | GET | SSE 流端点 |
+| `/messages/` | POST | 消息端点 |
+
+**注意：** SSE 传输需要完整的会话流程：
+1. 客户端先建立 SSE 连接（GET `/sse`），获取 `session_id`
+2. 后续请求携带 `session_id` 头（`X-Mcp-Session-Id`）
+3. 响应通过 SSE 流返回
 
 ## 认证
 

@@ -29,35 +29,45 @@ python main.py --transport stdio --token "token1" --token "token2"
 
 #### Client Usage (Python)
 
-```python
-import asyncio
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+**Streamable-HTTP Mode (Recommended):**
 
+```python
+from fastmcp import Client
 
 async def main():
-    server_params = StdioServerParameters(
-        command="python",
-        args=["main.py", "--transport", "stdio", "--token", "your-token"]
-    )
+    # 直接传递 URL 和 token
+    async with Client("http://localhost:8001/mcp", None, auth="your-token") as client:
+        tools = await client.list_tools()
+        print(f"Tools: {[t.name for t in tools]}")
 
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-
-            # List tools
-            tools = await session.list_tools()
-            print(f"Tools: {[t.name for t in tools]}")
-
-            # Call tool
-            result = await session.call_tool("add", {"a": 5, "b": 3})
-            print(f"Result: {result.content[0].text}")
-
+        result = await client.call_tool("add", {"a": 5, "b": 3})
+        print(f"Result: {result.data}")
 
 asyncio.run(main())
 ```
 
-For a complete example, see [examples/stdio_client_example.py](examples/stdio_client_example.py).
+**SSE Mode:**
+
+```python
+from mcp.client.sse import sse_client
+from mcp import ClientSession
+import asyncio
+
+async def main():
+    async with sse_client(url="http://localhost:8000/mcp/sse", headers={"Authorization": "Bearer your-token"}) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+
+            tools = await session.list_tools()
+            print(f"Tools: {[t.name for t in tools.tools]}")
+
+            result = await session.call_tool("add", {"a": 5, "b": 3})
+            print(f"Result: {result.content[0].text}")
+
+asyncio.run(main())
+```
+
+For a complete example, see [examples/streamable_http_client_example.py](examples/streamable_http_client_example.py) and [examples/sse_client_example.py](examples/sse_client_example.py).
 
 #### Claude Desktop Configuration
 
@@ -85,8 +95,23 @@ Add to your Claude Desktop config:
 Run the MCP server using SSE/HTTP transport via FastAPI:
 
 ```bash
+# Using SSE transport (direct FastMCP)
 python main.py --transport sse --host 0.0.0.0 --port 8000
 ```
+
+#### API Endpoints
+
+**SSE Mode (port 8000):**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/mcp/sse` | GET | SSE stream endpoint |
+| `/mcp/messages` | POST | Message endpoint (JSON-RPC) |
+
+**Note:** SSE transport requires a complete session flow:
+1. Client establishes SSE connection first (GET `/mcp/sse`), gets `session_id`
+2. Subsequent requests carry `session_id` header (`X-Mcp-Session-Id`)
+3. Responses are returned via SSE stream
 
 ## Authentication
 
@@ -154,12 +179,12 @@ config = AuthConfig.from_file("config.json")
 
 ## API Endpoints
 
-When running with SSE transport:
+When running with SSE transport via FastAPI:
 
 - `GET /` - Root endpoint with available routes
 - `GET /health` - Health check
-- `GET /mcp/sse` - SSE endpoint
-- `POST /mcp/message` - Message endpoint
+- `GET /mcp/sse` - SSE stream endpoint
+- `POST /mcp/messages` - JSON-RPC message endpoint
 
 ## Project Structure
 

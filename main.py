@@ -1,5 +1,5 @@
 """
-项目入口文件 - 支持stdio和sse两种传输模式
+项目入口文件 - 支持stdio、sse和http三种传输模式
 """
 
 import argparse
@@ -22,26 +22,32 @@ def run_sse(host: str = "0.0.0.0", port: int = 8000):
     uvicorn.run(app, host=host, port=port)
 
 
+def run_http(host: str = "0.0.0.0", port: int = 8000):
+    """Run MCP server with Streamable-HTTP transport."""
+    print(f"Starting MCP server with Streamable-HTTP transport on {host}:{port}")
+    mcp.run(transport="streamable-http", host=host, port=port)
+
+
 def main():
     parser = argparse.ArgumentParser(description="FastAPI MCP Server")
     parser.add_argument(
         "--transport",
         type=str,
-        choices=["stdio", "sse"],
+        choices=["stdio", "sse", "http"],
         default="stdio",
-        help="Transport mode (stdio or sse)",
+        help="Transport mode (stdio, sse, or http)",
     )
     parser.add_argument(
         "--host",
         type=str,
         default="0.0.0.0",
-        help="Host for SSE transport",
+        help="Host for HTTP/SSE transport",
     )
     parser.add_argument(
         "--port",
         type=int,
         default=8000,
-        help="Port for SSE transport",
+        help="Port for HTTP/SSE transport",
     )
     parser.add_argument(
         "--token",
@@ -62,9 +68,9 @@ def main():
         default=".env",
         help="Path to .env file for loading MCP_AUTH_TOKEN",
     )
-    
+
     args = parser.parse_args()
-    
+
     if args.no_auth:
         config = AuthConfig.disabled()
         configure_auth(config)
@@ -74,7 +80,7 @@ def main():
         if not tokens:
             tokens = os.environ.get("MCP_AUTH_TOKEN", "").split(",")
             tokens = [t.strip() for t in tokens if t.strip()]
-        
+
         if tokens:
             config = AuthConfig(enabled=True, tokens=tokens)
             configure_auth(config)
@@ -83,9 +89,11 @@ def main():
             print("ERROR: Authentication is enabled but no token provided!")
             print("Please set --token or MCP_AUTH_TOKEN environment variable")
             sys.exit(1)
-    
+
     if args.transport == "stdio":
         run_stdio()
+    elif args.transport == "http":
+        run_http(host=args.host, port=args.port)
     else:
         run_sse(host=args.host, port=args.port)
 
