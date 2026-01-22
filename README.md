@@ -187,6 +187,41 @@ config = AuthConfig.from_file("config.json")
 
 - `config://app-info` - Application information
 
+## Available Prompts
+
+MCP Prompt component for reusable prompt templates:
+
+- `analyze_code(code, language)` - Analyze code and provide improvements
+- `summarize_text(text, max_length)` - Summarize text
+- `translate_text(text, target_language)` - Translate text
+- `generate_questions(topic, num_questions)` - Generate practice questions
+- `create_essay_outline(topic, essay_type)` - Create essay outline
+
+#### Using Prompt Example
+
+```python
+import asyncio
+from src.server import mcp
+
+async def use_prompt():
+    # Get all prompts
+    prompts = await mcp.get_prompts()
+    print(f"Available prompts: {list(prompts.keys())}")
+
+    # Render prompt template
+    detail = prompts.get("analyze_code")
+    if detail:
+        result = await detail.render(arguments={
+            "code": "print('hello')",
+            "language": "python"
+        })
+        print(f"Rendered prompt: {result[0].content.text}")
+
+asyncio.run(use_prompt())
+```
+
+See [examples/prompt_example.py](examples/prompt_example.py) for complete example.
+
 ## API Endpoints
 
 When running with SSE/HTTP transport via FastAPI:
@@ -200,6 +235,25 @@ When running with SSE/HTTP transport via FastAPI:
 
 ## Project Structure
 
+```
+src/
+├── server.py        # MCP server instance
+├── app.py           # FastAPI application
+├── auth.py          # Authentication config
+├── tools/           # Tool implementations
+│   └── __init__.py
+├── resources/       # Resource implementations
+│   └── __init__.py
+└── prompts/         # Prompt implementations
+    └── __init__.py
+tests/
+├── conftest.py      # Pytest fixtures
+├── test_auth.py     # Auth tests
+└── test_server.py   # Server tests
+examples/
+├── stdio_client_example.py   # STDIO client example
+├── sse_client_example.py     # SSE client example
+└── prompt_example.py         # Prompt usage example
 ```
 src/
 ├── server.py        # MCP server instance

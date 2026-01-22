@@ -44,3 +44,4 @@ mcp = get_server()
 
 from . import tools  # noqa: F401
 from . import resources  # noqa: F401
+from . import prompts  # noqa: F401

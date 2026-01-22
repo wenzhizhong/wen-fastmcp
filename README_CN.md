@@ -188,6 +188,41 @@ config = AuthConfig.from_file("config.json")
 
 - `config://app-info` - 应用信息
 
+## 可用提示词（Prompts）
+
+MCP 的 Prompt 组件用于定义可重用的提示词模板：
+
+- `analyze_code(code, language)` - 分析代码并提供改进建议
+- `summarize_text(text, max_length)` - 总结文本
+- `translate_text(text, target_language)` - 翻译文本
+- `generate_questions(topic, num_questions)` - 生成练习问题
+- `create_essay_outline(topic, essay_type)` - 创建论文大纲
+
+#### 使用 Prompt 示例
+
+```python
+import asyncio
+from src.server import mcp
+
+async def use_prompt():
+    # 获取所有 prompts
+    prompts = await mcp.get_prompts()
+    print(f"Available prompts: {list(prompts.keys())}")
+
+    # 渲染 prompt 模板
+    detail = prompts.get("analyze_code")
+    if detail:
+        result = await detail.render(arguments={
+            "code": "print('hello')",
+            "language": "python"
+        })
+        print(f"Rendered prompt: {result[0].content.text}")
+
+asyncio.run(use_prompt())
+```
+
+完整示例请查看 [examples/prompt_example.py](examples/prompt_example.py)。
+
 ## API 端点
 
 使用 SSE/HTTP 传输模式时：
@@ -208,7 +243,9 @@ src/
 ├── auth.py          # 认证配置
 ├── tools/           # 工具实现
 │   └── __init__.py
-└── resources/       # 资源实现
+├── resources/       # 资源实现
+│   └── __init__.py
+└── prompts/         # 提示词实现
     └── __init__.py
 tests/
 ├── conftest.py      # Pytest fixtures
@@ -216,7 +253,8 @@ tests/
 └── test_server.py   # 服务器测试
 examples/
 ├── stdio_client_example.py   # STDIO 客户端示例
-└── sse_client_example.py     # SSE 客户端示例
+├── sse_client_example.py     # SSE 客户端示例
+└── prompt_example.py         # Prompt 使用示例
 ```
 
 ## 添加新工具

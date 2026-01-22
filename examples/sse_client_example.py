@@ -6,6 +6,10 @@
 2. 直接调用 /mcp/messages 端点（需要手动管理 session_id）
 
 注意：SSE 是长连接模式，客户端会持续运行。
+
+测试步骤：
+1. 启动 MCP 服务器 ：python main.py --transport sse --host 0.0.0.0 --port 8003 --token=123456
+2. 运行本程序：python.exe .\sse_client_example.py --method both
 """
 
 import asyncio
